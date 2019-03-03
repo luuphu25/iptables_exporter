@@ -46,14 +46,14 @@ def ruleInfo(rule):
     print "-j ", rule.target.name
     # get packet, bytes reach the rules 
     rule_packet, rule_bytes = rule.get_counters()
-    print rule_packet, rule_bytes , "bytes"
+    #print rule_packet, rule_bytes , "bytes"
 
 
 
 class MyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        table = iptc.Table(iptc.Table.FILTER)
-        packet, byte = chainInfo(table, "INPUT")
+        #table = iptc.Table(iptc.Table.FILTER)
+        #packet, byte = chainInfo(table, "INPUT")
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Hello World")
@@ -61,8 +61,13 @@ class MyHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     start_http_server(8000)
-    server = HTTPServer(('localhost', 8001), MyHandler)
-    server.serve_forever()
+    while True:
+        table = iptc.Table(iptc.Table.FILTER)
+        packet, byte = chainInfo(table, "INPUT")
+        RULE_PACKET.set(packet)
+        RULE_TOTAL.set(byte)
+#    server = HTTPServer(('localhost', 8001), MyHandler)
+#    server.serve_forever()
 
 """ if __name__ == '__main__':
     httpd = make_server('', 8000, my_app)

@@ -10,6 +10,8 @@ for chain in table.chains:
         for match in rule.matches:
                 (input_packets, input_bytes) = rule.get_counters()
                 print input_packets, input_bytes
+
+
 """ for rule in forward_chain.rules:
     (forward_packets, forward_bytes) = rule.get_counters()
 
