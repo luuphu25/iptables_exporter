@@ -2,8 +2,8 @@ import iptc
 from prometheus_client import start_http_server, Gauge
 from BaseHTTPServer import BaseHTTPRequestHandler
 from BaseHTTPServer import HTTPServer
-RULE_TOTAL = Gauge('chain_bytes_total', 'Total bytes reach chain')
-RULE_PACKET = Gauge('chain_packet', 'Total packet reach chain')
+RULE_TOTAL = Gauge('chain_bytes_total', 'Total bytes reach chain',['chain'])
+RULE_PACKET = Gauge('chain_packet', 'Total packet reach chain', ['chain'])
 
 
 def chainInfo(table, chain):
@@ -64,8 +64,8 @@ if __name__ == "__main__":
     while True:
         table = iptc.Table(iptc.Table.FILTER)
         packet, byte = chainInfo(table, "INPUT")
-        RULE_PACKET.set(packet)
-        RULE_TOTAL.set(byte)
+        RULE_PACKET.labels('INPUT').set(packet)
+        RULE_TOTAL.labels('INPUT').set(byte)
 #    server = HTTPServer(('localhost', 8001), MyHandler)
 #    server.serve_forever()
 
