@@ -2,22 +2,28 @@ import iptc
 from prometheus_client import start_http_server, Gauge
 from BaseHTTPServer import BaseHTTPRequestHandler
 from BaseHTTPServer import HTTPServer
-RULE_TOTAL = Gauge('chain_bytes_total', 'Total bytes reach chain',['chain'])
-RULE_PACKET = Gauge('chain_packet', 'Total packet reach chain', ['chain'])
+CHAIN_TOTAL = Gauge('chain_bytes_total', 'Total bytes reach chain',['table', 'chain'])
+CHAIN_PACKET = Gauge('chain_packet', 'Total packet reach chain', ['table', 'chain'])
+
+RULE_TOTAL = Gauge('rule_bytes_total', 'Total bytes reach the rule', ['table', 'chain', 'rule'])
+RULE_PACKET = Gauge('rule_packet_total', 'Total packets reach the rule', ['table', 'chain', 'rule'])
 
 
-def chainInfo(table, chain):
-    chain = iptc.Chain(table, chain)
-    chain_packet, chain_bytes = chain.get_counters()
-    print chain.name, 
-    print chain_packet, chain_bytes, "bytes"
+def chainInfo(table, chain_name, RULE_TOTAL, RULE_PACKET):
+    chain = iptc.Chain(table, chain_name)
+    packet, byte = chain.get_counters()
+    #print chain.name, 
+    #print chain_packet, chain_bytes, "bytes"
     
     if len(chain.rules) > 0: 
         for rule in chain.rules:
-            ruleInfo(rule)
+            rpacket, rbytes, rinfo = ruleInfo(rule)
+            RULE_TOTAL.labels(table.name,chain.name, rinfo).set(rbytes)
+            RULE_PACKET.labels(table.name,chain.name, rinfo).set(rpacket)
     else:
-        print "0"
-    return chain_packet, chain_bytes
+        RULE_TOTAL.labels(table.name,chain.name, 'no_rule').set(0)
+        RULE_PACKET.labels(table.name,chain.name, 'no_rule').set(0)
+    return packet, byte
 
 def ruleInfo(rule):
     #get rule syntax 
@@ -35,19 +41,20 @@ def ruleInfo(rule):
     else: 
         out_interface = ""
 
-    print "rule", "proto:", protocol, "src:", src, "dst:", \
-        dst, in_interface, out_interface,
+    rule_info = "rule: " +  "proto: " + protocol + " src: " + src + " dst: " + \
+        dst + " " +  in_interface + " " +out_interface,
     #check if match None
     if(rule.matches): 
-        print "Matches:",
+        rule_info +=  " Matches: ",
         for match in rule.matches:
-            print match.name,
+            rule_info += match.name,
 
-    print "-j ", rule.target.name
+    #print "-j ", rule.target.name
+    rule_info += " -j " + rule.target.name 
     # get packet, bytes reach the rules 
     rule_packet, rule_bytes = rule.get_counters()
     #print rule_packet, rule_bytes , "bytes"
-
+    return rule_packet, rule_bytes, rule_info
 
 
 class MyHandler(BaseHTTPRequestHandler):
@@ -60,12 +67,14 @@ class MyHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    start_http_server(8000)
+    start_http_server(9103)
+    table = iptc.Table(iptc.Table.FILTER)
+
     while True:
-        table = iptc.Table(iptc.Table.FILTER)
-        packet, byte = chainInfo(table, "INPUT")
-        RULE_PACKET.labels('INPUT').set(packet)
-        RULE_TOTAL.labels('INPUT').set(byte)
+    for chain in table.chains:
+        packet, byte = chainInfo(table, chain.name, RULE_TOTAL, RULE_PACKET)
+        CHAIN_PACKET.labels(table.name, chain.name).set(packet)
+        CHAIN_TOTAL.labels(table.name, chain.name).set(byte)
 #    server = HTTPServer(('localhost', 8001), MyHandler)
 #    server.serve_forever()
 
