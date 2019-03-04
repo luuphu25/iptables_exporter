@@ -8,6 +8,7 @@ CHAIN_PACKET = Gauge('chain_packet', 'Total packet reach chain', ['table', 'chai
 RULE_TOTAL = Gauge('rule_bytes_total', 'Total bytes reach the rule', ['table', 'chain', 'rule'])
 RULE_PACKET = Gauge('rule_packet_total', 'Total packets reach the rule', ['table', 'chain', 'rule'])
 
+RULE_COUNT = Gauge('rule_of_chain_total', 'Total rule of chain', ['table', 'chain']) 
 
 def chainInfo(table, chain_name, RULE_TOTAL, RULE_PACKET):
     chain = iptc.Chain(table, chain_name)
@@ -20,9 +21,9 @@ def chainInfo(table, chain_name, RULE_TOTAL, RULE_PACKET):
             rpacket, rbytes, rinfo = ruleInfo(rule)
             RULE_TOTAL.labels(table.name,chain.name, rinfo).set(rbytes)
             RULE_PACKET.labels(table.name,chain.name, rinfo).set(rpacket)
-    else:
-        RULE_TOTAL.labels(table.name,chain.name, 'no_rule').set(0)
-        RULE_PACKET.labels(table.name,chain.name, 'no_rule').set(0)
+    #else:
+     #   RULE_TOTAL.labels(table.name,chain.name, 'no_rule').set(0)
+     #   RULE_PACKET.labels(table.name,chain.name, 'no_rule').set(0)
     return packet, byte
 
 def ruleInfo(rule):
@@ -42,49 +43,28 @@ def ruleInfo(rule):
         out_interface = ""
 
     rule_info = "rule: " +  "proto: " + protocol + " src: " + src + " dst: " + \
-        dst + " " +  in_interface + " " +out_interface,
+        dst + " " +  in_interface + " " +out_interface
     #check if match None
     if(rule.matches): 
-        rule_info +=  " Matches: ",
+        rule_info +=  " Matches: "
         for match in rule.matches:
-            rule_info += match.name,
+            rule_info += match.name + " "
 
-    #print "-j ", rule.target.name
-    rule_info += " -j " + rule.target.name 
+    rule_info += "-j " 
+    rule_info += rule.target.name 
     # get packet, bytes reach the rules 
     rule_packet, rule_bytes = rule.get_counters()
     #print rule_packet, rule_bytes , "bytes"
     return rule_packet, rule_bytes, rule_info
 
 
-class MyHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        #table = iptc.Table(iptc.Table.FILTER)
-        #packet, byte = chainInfo(table, "INPUT")
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Hello World")
-
-
 if __name__ == "__main__":
     start_http_server(9103)
     table = iptc.Table(iptc.Table.FILTER)
-
+    print "Exporter is running in port 9103..."
     while True:
-    for chain in table.chains:
-        packet, byte = chainInfo(table, chain.name, RULE_TOTAL, RULE_PACKET)
-        CHAIN_PACKET.labels(table.name, chain.name).set(packet)
-        CHAIN_TOTAL.labels(table.name, chain.name).set(byte)
-#    server = HTTPServer(('localhost', 8001), MyHandler)
-#    server.serve_forever()
-
-""" if __name__ == '__main__':
-    httpd = make_server('', 8000, my_app)
-    httpd.serve_forever()
-
-    while True:
-        start_http_server(8000)   
-        table = iptc.Table(iptc.Table.FILTER)
-        packet, byte = chainInfo(table, "INPUT")
-        rule_packet.set(packet)
-        rule_bytes.set(byte) """
+        for chain in table.chains:
+            packet, byte = chainInfo(table, chain.name, RULE_TOTAL, RULE_PACKET)
+            RULE_COUNT.labels(table.name, chain.name).set(len(chain.rules))
+            CHAIN_PACKET.labels(table.name, chain.name).set(packet)
+            CHAIN_TOTAL.labels(table.name, chain.name).set(byte)
